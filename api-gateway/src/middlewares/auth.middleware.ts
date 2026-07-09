@@ -5,19 +5,20 @@ import type { AuthenticatedRequest, JwtPayload } from '../types/index.js';
 
 export function authenticate(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
+  const cookieToken = req.cookies?.accessToken;
 
-  if (!authHeader?.startsWith('Bearer ')) {
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.split(' ')[1]
+    : cookieToken;
+
+  if (!token) {
     res.status(401).json({ success: false, message: 'Missing or invalid authorization header' });
     return;
   }
 
-  const token = authHeader.split(' ')[1] as string;
-
   try {
-    const decoded = jwt.verify(token, config.jwt.secret as string, {
+    const decoded = jwt.verify(token as string, config.jwt.accessTokenSecret as string, {
       algorithms: [config.jwt.algorithm as jwt.Algorithm],
-      issuer: config.jwt.issuer,
-      audience: config.jwt.audience,
     }) as JwtPayload;
 
     req.user = decoded;
@@ -33,7 +34,7 @@ export function authenticate(req: AuthenticatedRequest, res: Response, next: Nex
 
 export function setUserHeaders(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
   if (req.user) {
-    req.headers['x-user-id'] = req.user.sub;
+    req.headers['x-user-id'] = req.user.id;
     if (req.user.role) {
       req.headers['x-user-role'] = req.user.role;
     }

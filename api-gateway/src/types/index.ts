@@ -1,8 +1,9 @@
 import type { Request } from 'express';
 
 export interface JwtPayload {
-  sub: string;
+  id: string;
   role?: string;
+  jti?: string;
   [key: string]: unknown;
 }
 

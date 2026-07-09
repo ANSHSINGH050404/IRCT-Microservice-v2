@@ -1,0 +1,96 @@
+import { config } from "../config/index.js";
+import { logger } from "../config/logger.js";
+import { createProxyMiddleware } from "http-proxy-middleware";
+import type { RequestHandler } from "express";
+
+class CircuitBreaker {
+  private serviceName: string;
+  private threshold: number;
+  private timeout: number;
+  private failureCount = 0;
+  private state: "closed" | "open" | "half-open" = "closed";
+  private nextAttempt = Date.now();
+
+  constructor(serviceName: string, threshold = 5, timeout = 60000) {
+    this.serviceName = serviceName;
+    this.threshold = threshold;
+    this.timeout = timeout;
+  }
+
+  get isOpen(): boolean {
+    if (this.state === "open" && Date.now() >= this.nextAttempt) {
+      this.state = "half-open";
+      logger.info(`Circuit breaker for ${this.serviceName} is half-open.`);
+    }
+    return this.state === "open";
+  }
+
+  recordSuccess(): void {
+    this.failureCount = 0;
+    if (this.state === "half-open") {
+      this.state = "closed";
+      logger.info(`Circuit breaker for ${this.serviceName} is closed.`);
+    }
+  }
+
+  recordFailure(): void {
+    this.failureCount++;
+    if (this.failureCount >= this.threshold) {
+      this.state = "open";
+      this.nextAttempt = Date.now() + this.timeout;
+      logger.warn(`Circuit breaker for ${this.serviceName} is open.`);
+    }
+  }
+
+  getState() {
+    return {
+      service: this.serviceName,
+      state: this.state,
+      failureCount: this.failureCount,
+      nextAttempt: this.nextAttempt,
+    };
+  }
+}
+
+const circuitBreakers: Record<string, CircuitBreaker> = {
+  userService: new CircuitBreaker("userService"),
+  orderService: new CircuitBreaker("orderService"),
+  paymentService: new CircuitBreaker("paymentService"),
+};
+
+export function createProxy(serviceName: string, target: string): RequestHandler {
+  const cb = circuitBreakers[serviceName];
+  if (!cb) {
+    throw new Error(`Unknown service: ${serviceName}`);
+  }
+
+  const proxy = createProxyMiddleware({
+    target,
+    changeOrigin: true,
+    on: {
+      proxyReq: (_proxyReq, req) => {
+        logger.info(`Proxying ${req.method} ${req.url} -> ${serviceName}`);
+      },
+      proxyRes: () => {
+        cb.recordSuccess();
+      },
+      error: (err) => {
+        cb.recordFailure();
+        logger.error(`Proxy error for ${serviceName}: ${err.message}`);
+      },
+    },
+  });
+
+  return (req, res, next) => {
+    if (cb.isOpen) {
+      res.status(503).json({
+        success: false,
+        message: `Service ${serviceName} is currently unavailable`,
+      });
+      return;
+    }
+    proxy(req, res, next);
+  };
+}
+
+export { circuitBreakers };
