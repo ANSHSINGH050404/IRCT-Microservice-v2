@@ -1,0 +1,135 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: irct-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: irct
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - irct-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: irct-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - irct-network
+
+  redis-ui:
+    image: redis/redisinsight:latest
+    container_name: irct-redis-ui
+    restart: always
+    ports:
+      - "5540:5540"
+    depends_on:
+      - redis
+    networks:
+      - irct-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: irct-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - irct-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: irct-zookeeper
+    restart: always
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - irct-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: irct-kafka
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    networks:
+      - irct-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: irct-kafka-ui
+    restart: always
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    networks:
+      - irct-network
+
+  elasticsearch:
+    image: elasticsearch:8.17.3
+    container_name: irct-elasticsearch
+    restart: always
+    environment:
+      - node.name=irct-elasticsearch
+      - cluster.name=irct-cluster
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - irct-network
+
+  kibana:
+    image: kibana:8.17.3
+    container_name: irct-kibana
+    restart: always
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - irct-network
+
+volumes:
+  postgres_data:
+  elasticsearch_data:
+
+networks:
+  irct-network:
+    driver: bridge
