@@ -9,6 +9,9 @@ let transporter: nodemailer.Transporter | null = null;
 
 function getTransporter() {
   if (!transporter) {
+    if (!config.smtp.user || !config.smtp.pass) {
+      throw new Error("SMTP credentials not configured. Set SMTP_USER and SMTP_PASS environment variables.");
+    }
     transporter = nodemailer.createTransport({
       host: config.smtp.host,
       port: config.smtp.port,
