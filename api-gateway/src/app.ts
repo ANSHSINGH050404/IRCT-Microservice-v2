@@ -19,7 +19,7 @@ app.get("/health", (_req, res) => {
   res.json({ success: true, message: "API Gateway is running" });
 });
 
-app.use("/api", routes);
+app.use("/api/v1", routes);
 app.use((_req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });
 });
