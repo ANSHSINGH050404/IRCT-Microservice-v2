@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SeatType {
+  AC
+  Sleeper
+  Seater
+}
+
+enum BookingStatus {
+  Pending
+  Confirmed
+  Cancelled
+}
+
+model Station {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  city      String
+  state     String
+
+  routeStations RouteStation[]
+  fromBookings  Booking[]    @relation("FromStation")
+  toBookings    Booking[]    @relation("ToStation")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([code])
+  @@index([name])
+  @@map("stations")
+}
+
+model Train {
+  id         String   @id @default(cuid())
+  name       String
+  number     String   @unique
+  coachName  String   @default("AC")
+  totalSeats Int
+
+  seats      Seat[]
+  route      Route?
+  schedules  Schedule[]
+
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([number])
+  @@map("trains")
+}
+
+model Route {
+  id        String @id @default(cuid())
+
+  trainId   String @unique
+  train     Train  @relation(fields: [trainId], references: [id], onDelete: Cascade)
+
+  routeStations RouteStation[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("routes")
+}
+
+model RouteStation {
+  id String @id @default(cuid())
+
+  routeId String
+  route Route @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  stationId String
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  stopNumber Int
+
+  arrivalTime String?
+  departureTime String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([routeId, stationId])
+  @@unique([routeId, stopNumber])
+  @@map("route_stations")
+}
+
+model Schedule {
+  id String @id @default(cuid())
+
+  trainId String
+  train Train @relation(fields: [trainId], references: [id], onDelete: Cascade)
+
+  journeyDate DateTime
+
+  departureTime DateTime
+  arrivalTime DateTime
+
+  bookings Booking[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([journeyDate])
+  @@map("schedules")
+}
+
+model Seat {
+  id String @id @default(cuid())
+
+  trainId String
+  train Train @relation(fields: [trainId], references: [id], onDelete: Cascade)
+
+  seatNumber String
+  seatType SeatType
+
+  price Float
+
+  bookings Booking[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([trainId, seatNumber])
+  @@map("seats")
+}
+
+model Passenger {
+  id String @id @default(cuid())
+
+  name String
+  email String @unique
+  phone String @unique
+
+  bookings Booking[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("passengers")
+}
+
+model Booking {
+  id String @id @default(cuid())
+
+  passengerId String
+  passenger Passenger @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+
+  scheduleId String
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  seatId String
+  seat Seat @relation(fields: [seatId], references: [id], onDelete: Cascade)
+
+  fromStationId String
+  fromStation Station @relation("FromStation", fields: [fromStationId], references: [id])
+
+  toStationId String
+  toStation Station @relation("ToStation", fields: [toStationId], references: [id])
+
+  status BookingStatus @default(Pending)
+
+  bookedAt DateTime @default(now())
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([scheduleId])
+  @@index([passengerId])
+  @@index([seatId])
+
+  @@map("bookings")
+}
+
+model Admin {
+  id String @id @default(cuid())
+
+  email String @unique
+  password String
+  name String
+  role String @default("admin")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}

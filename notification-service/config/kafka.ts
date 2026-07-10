@@ -1,9 +1,10 @@
 import { Kafka, logLevel } from "kafkajs";
 import { logger } from "./logger";
+import { config as appConfig } from "./index";
 
 const kafka = new Kafka({
-  clientId: "user-service",
-  brokers: [process.env.KAFKA_BOOTSTRAP_SERVERS || "localhost:9093"],
+  clientId: "notification-service",
+  brokers: appConfig.kafka.brokers,
   logLevel: logLevel.ERROR,
 
   retry: {
@@ -28,6 +29,6 @@ const shutdown = async () => {
 };
 
 process.on("SIGTERM", shutdown);
-process.on("SIGTNT", shutdown);
+process.on("SIGINT", shutdown);
 
 export { consumer, shutdown };
