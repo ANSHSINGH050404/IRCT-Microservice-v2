@@ -7,6 +7,8 @@ import { createProxy } from "../services/proxy.js";
 const router = express.Router();
 
 const userServiceProxy = createProxy("userService", config.services.userService);
+const adminServiceProxy = createProxy("adminService", config.services.adminService);
+const searchServiceProxy = createProxy("searchService", config.services.searchService);
 
 router.post("/users/auth/send-otp", authRateLimiter, userServiceProxy);
 
@@ -17,6 +19,9 @@ router.post("/users/auth/login", authRateLimiter, userServiceProxy);
 router.post("/users/auth/refresh-token", userServiceProxy);
 
 router.get("/users/user/profile", authenticate, setUserHeaders, userServiceProxy);
+
+router.use("/admin", adminServiceProxy);
+router.use("/search", searchServiceProxy);
 
 router.get("/gateway/health", (_req, res) => {
   res.status(200).json({

@@ -6,6 +6,8 @@ export const config = {
 
   services: {
     userService: process.env.USER_SERVICE_URL ?? 'http://localhost:4001',
+    adminService: process.env.ADMIN_SERVICE_URL ?? 'http://localhost:4002',
+    searchService: process.env.SEARCH_SERVICE_URL ?? 'http://localhost:4003',
   },
 
   jwt: {

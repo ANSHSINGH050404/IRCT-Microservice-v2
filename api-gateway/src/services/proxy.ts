@@ -1,7 +1,7 @@
 import { config } from "../config/index.js";
 import { logger } from "../config/logger.js";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import type { RequestHandler } from "express";
+import type { RequestHandler, Request } from "express";
 
 class CircuitBreaker {
   private serviceName: string;
@@ -54,8 +54,8 @@ class CircuitBreaker {
 
 const circuitBreakers: Record<string, CircuitBreaker> = {
   userService: new CircuitBreaker("userService"),
-  orderService: new CircuitBreaker("orderService"),
-  paymentService: new CircuitBreaker("paymentService"),
+  adminService: new CircuitBreaker("adminService"),
+  searchService: new CircuitBreaker("searchService"),
 };
 
 export function createProxy(serviceName: string, target: string): RequestHandler {
@@ -67,9 +67,9 @@ export function createProxy(serviceName: string, target: string): RequestHandler
   const proxy = createProxyMiddleware({
     target,
     changeOrigin: true,
-    pathRewrite: (path, req) => req.originalUrl,
+    pathRewrite: (path, req: Request) => req.originalUrl,
     on: {
-      proxyReq: (_proxyReq, req) => {
+      proxyReq: (_proxyReq, req: Request) => {
         logger.info(`Proxying ${req.method} ${req.originalUrl} -> ${serviceName}`);
       },
       proxyRes: () => {

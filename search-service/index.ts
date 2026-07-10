@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import { config } from "./config";
 import { logger } from "./config/logger";
-import { connectConsumer, disconnectConsumer, consumer, TOPICS } from "./config/kafka";
+import { connectConsumer, disconnectConsumer, consumer } from "./config/kafka";
 import { connectElasticsearch, disconnectElasticsearch, esClient } from "./config/elasticsearch";
 import { STATION_INDEX, TRAIN_INDEX, ROUTE_INDEX, SCHEDULE_INDEX } from "./config/elasticsearch";
 import searchRoutes from "./routes/search.routes";
@@ -81,6 +81,10 @@ async function startKafkaConsumer() {
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             });
+            break;
+
+          default:
+            logger.warn(`Received message on unknown topic: ${topic}`);
             break;
         }
       } catch (err) {

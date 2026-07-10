@@ -1,5 +1,6 @@
 import { connectProducer, producer } from "../../config/kafka";
 import { logger } from "../../config/logger";
+import { TOPICS } from "../../constants";
 
 export class AdminProducer {
   private isInitialized = false;
@@ -43,8 +44,8 @@ export class AdminProducer {
     city: string;
     state: string;
   }) {
-    return this.sendMessage("station.created", `station:${station.id}`, {
-      event: "station.created",
+    return this.sendMessage(TOPICS.STATION_CREATED, `station:${station.id}`, {
+      event: TOPICS.STATION_CREATED,
       data: station,
       timestamp: new Date().toISOString(),
     });
@@ -57,8 +58,8 @@ export class AdminProducer {
     coachName: string;
     totalSeats: number;
   }) {
-    return this.sendMessage("train.created", `train:${train.id}`, {
-      event: "train.created",
+    return this.sendMessage(TOPICS.TRAIN_CREATED, `train:${train.id}`, {
+      event: TOPICS.TRAIN_CREATED,
       data: train,
       timestamp: new Date().toISOString(),
     });
@@ -76,8 +77,8 @@ export class AdminProducer {
       departureTime: string | null;
     }[];
   }) {
-    return this.sendMessage("route.created", `route:${route.id}`, {
-      event: "route.created",
+    return this.sendMessage(TOPICS.ROUTE_CREATED, `route:${route.id}`, {
+      event: TOPICS.ROUTE_CREATED,
       data: route,
       timestamp: new Date().toISOString(),
     });
@@ -91,8 +92,8 @@ export class AdminProducer {
     departureTime: string;
     arrivalTime: string;
   }) {
-    return this.sendMessage("schedule.created", `schedule:${schedule.id}`, {
-      event: "schedule.created",
+    return this.sendMessage(TOPICS.SCHEDULE_CREATED, `schedule:${schedule.id}`, {
+      event: TOPICS.SCHEDULE_CREATED,
       data: schedule,
       timestamp: new Date().toISOString(),
     });
