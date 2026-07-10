@@ -67,9 +67,10 @@ export function createProxy(serviceName: string, target: string): RequestHandler
   const proxy = createProxyMiddleware({
     target,
     changeOrigin: true,
+    pathRewrite: (path, req) => req.originalUrl,
     on: {
       proxyReq: (_proxyReq, req) => {
-        logger.info(`Proxying ${req.method} ${req.url} -> ${serviceName}`);
+        logger.info(`Proxying ${req.method} ${req.originalUrl} -> ${serviceName}`);
       },
       proxyRes: () => {
         cb.recordSuccess();
