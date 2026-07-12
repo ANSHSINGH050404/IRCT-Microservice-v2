@@ -1,117 +1,121 @@
-import { Client } from "@elastic/elasticsearch";
-import type { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
-
 export const STATION_INDEX = "stations";
 export const TRAIN_INDEX = "trains";
 export const ROUTE_INDEX = "routes";
 export const SCHEDULE_INDEX = "schedules";
 
-const ELASTICSEARCH_URL = process.env.ELASTICSEARCH_URL || "http://localhost:9200";
+const ES_URL = process.env.ELASTICSEARCH_URL || "http://localhost:9200";
 
-export const esClient = new Client({ node: ELASTICSEARCH_URL });
+async function esRequest(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<unknown> {
+  const res = await fetch(`${ES_URL}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`ES ${res.status}: ${text}`);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
 
-let isConnected = false;
-
-const INDEX_MAPPINGS: Record<string, MappingTypeMapping> = {
+const INDEX_MAPPINGS: Record<string, object> = {
   [STATION_INDEX]: {
-    properties: {
-      id: { type: "keyword" },
-      name: { type: "text" },
-      code: { type: "keyword" },
-      city: { type: "text" },
-      state: { type: "text" },
-      createdAt: { type: "date" },
-      updatedAt: { type: "date" },
+    mappings: {
+      properties: {
+        id: { type: "keyword" },
+        name: { type: "text" },
+        code: { type: "keyword" },
+        city: { type: "text" },
+        state: { type: "text" },
+        createdAt: { type: "date" },
+        updatedAt: { type: "date" },
+      },
     },
+    settings: { number_of_shards: 1, number_of_replicas: 0 },
   },
   [TRAIN_INDEX]: {
-    properties: {
-      id: { type: "keyword" },
-      name: { type: "text" },
-      number: { type: "keyword" },
-      coachName: { type: "keyword" },
-      totalSeats: { type: "integer" },
-      createdAt: { type: "date" },
-      updatedAt: { type: "date" },
+    mappings: {
+      properties: {
+        id: { type: "keyword" },
+        name: { type: "text" },
+        number: { type: "keyword" },
+        coachName: { type: "keyword" },
+        totalSeats: { type: "integer" },
+        createdAt: { type: "date" },
+        updatedAt: { type: "date" },
+      },
     },
+    settings: { number_of_shards: 1, number_of_replicas: 0 },
   },
   [ROUTE_INDEX]: {
-    properties: {
-      id: { type: "keyword" },
-      trainId: { type: "keyword" },
-      trainName: { type: "text" },
-      trainNumber: { type: "keyword" },
-      stations: {
-        type: "nested",
-        properties: {
-          stationId: { type: "keyword" },
-          stationName: { type: "text" },
-          stationCode: { type: "keyword" },
-          stopNumber: { type: "integer" },
-          arrivalTime: { type: "keyword" },
-          departureTime: { type: "keyword" },
+    mappings: {
+      properties: {
+        id: { type: "keyword" },
+        trainId: { type: "keyword" },
+        stations: {
+          type: "nested",
+          properties: {
+            stationId: { type: "keyword" },
+            stationName: { type: "text" },
+            stationCode: { type: "keyword" },
+            stopNumber: { type: "integer" },
+            arrivalTime: { type: "keyword" },
+            departureTime: { type: "keyword" },
+          },
         },
+        createdAt: { type: "date" },
+        updatedAt: { type: "date" },
       },
-      createdAt: { type: "date" },
-      updatedAt: { type: "date" },
     },
+    settings: { number_of_shards: 1, number_of_replicas: 0 },
   },
   [SCHEDULE_INDEX]: {
-    properties: {
-      id: { type: "keyword" },
-      trainId: { type: "keyword" },
-      trainName: { type: "text" },
-      trainNumber: { type: "keyword" },
-      journeyDate: { type: "date" },
-      departureTime: { type: "date" },
-      arrivalTime: { type: "date" },
-      createdAt: { type: "date" },
-      updatedAt: { type: "date" },
+    mappings: {
+      properties: {
+        id: { type: "keyword" },
+        trainId: { type: "keyword" },
+        journeyDate: { type: "date" },
+        departureTime: { type: "date" },
+        arrivalTime: { type: "date" },
+        createdAt: { type: "date" },
+        updatedAt: { type: "date" },
+      },
     },
+    settings: { number_of_shards: 1, number_of_replicas: 0 },
   },
 };
 
-async function ensureIndex(index: string, mappings: MappingTypeMapping) {
-  const exists = await esClient.indices.exists({ index });
-  if (!exists) {
-    await esClient.indices.create({
-      index,
-      mappings,
-      settings: {
-        number_of_shards: 1,
-        number_of_replicas: 0,
-      },
-    });
-    console.log(`Created index: ${index}`);
-  }
+async function indexExists(index: string): Promise<boolean> {
+  const res = await fetch(`${ES_URL}/${index}`, { method: "HEAD" });
+  return res.status === 200;
 }
 
 export async function connectElasticsearch() {
-  if (isConnected) return;
-
   const maxRetries = 5;
-  let retries = 0;
 
-  while (retries < maxRetries) {
+  for (let i = 1; i <= maxRetries; i++) {
     try {
-      await esClient.ping();
+      await esRequest("GET", "/");
       console.log("Connected to Elasticsearch");
-
-      for (const [index, mappings] of Object.entries(INDEX_MAPPINGS)) {
-        await ensureIndex(index, mappings);
+      for (const [index, config] of Object.entries(INDEX_MAPPINGS)) {
+        const exists = await indexExists(index);
+        if (!exists) {
+          await esRequest("PUT", `/${index}`, config);
+          console.log(`Created index: ${index}`);
+        }
       }
-
-      isConnected = true;
       return;
     } catch (err) {
-      retries++;
       console.error(
-        `Failed to connect to Elasticsearch (attempt ${retries}/${maxRetries}):`,
+        `Failed to connect to Elasticsearch (attempt ${i}/${maxRetries}):`,
         (err as Error).message,
       );
-      if (retries < maxRetries) {
-        await new Promise((r) => setTimeout(r, 3000));
-      }
+      if (i < maxRetries) await new Promise((r) => setTimeout(r, 3000));
     }
   }
 
@@ -119,9 +123,31 @@ export async function connectElasticsearch() {
 }
 
 export async function disconnectElasticsearch() {
-  if (isConnected) {
-    await esClient.close();
-    isConnected = false;
-    console.log("Disconnected from Elasticsearch");
-  }
+  console.log("Disconnected from Elasticsearch");
+}
+
+export async function indexDocument(
+  index: string,
+  id: string,
+  body: Record<string, unknown>,
+) {
+  await esRequest("PUT", `/${index}/_doc/${id}?refresh=wait_for`, body);
+  console.log(`Indexed document ${id} into ${index}`);
+}
+
+export async function searchIndex(
+  index: string,
+  query: string,
+): Promise<unknown[]> {
+  const result: any = await esRequest("POST", `/${index}/_search`, {
+    query: {
+      multi_match: {
+        query,
+        fields: ["*"],
+        fuzziness: "AUTO",
+      },
+    },
+    size: 20,
+  });
+  return result?.hits?.hits?.map((h: any) => h._source) ?? [];
 }

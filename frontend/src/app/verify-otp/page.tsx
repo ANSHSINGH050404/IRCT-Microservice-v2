@@ -21,7 +21,7 @@ function VerifyOtpForm() {
 
     try {
       await auth.verifyOtp({ otp });
-      router.push("/?verified=1");
+      router.push("/login?verified=1");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");
     } finally {

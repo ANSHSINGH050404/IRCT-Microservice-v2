@@ -1,13 +1,22 @@
 const API = process.env.NEXT_PUBLIC_API_URL!;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  const adminToken =
+    typeof window !== "undefined"
+      ? localStorage.getItem("adminAccessToken")
+      : null;
 
   const res = await fetch(`${API}${path}`, {
     ...options,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(adminToken && !token
+        ? { Authorization: `Bearer ${adminToken}` }
+        : {}),
       ...options?.headers,
     },
   });
@@ -20,6 +29,86 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   return body;
 }
+
+// ── Types ──────────────────────────────────────────────
+
+export interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Station {
+  id: string;
+  name: string;
+  code: string;
+  city: string;
+  state: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Train {
+  id: string;
+  name: string;
+  number: string;
+  coachName: string;
+  totalSeats: number;
+  seats: Seat[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Seat {
+  id: string;
+  seatNumber: number;
+  seatType: string;
+  price: number;
+}
+
+export interface RouteStation {
+  id: string;
+  stationId: string;
+  station: Station;
+  stopNumber: number;
+  arrivalTime: string | null;
+  departureTime: string | null;
+}
+
+export interface Route {
+  id: string;
+  trainId: string;
+  train: Train;
+  routeStations: RouteStation[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Schedule {
+  id: string;
+  trainId: string;
+  journeyDate: string;
+  departureTime: string;
+  arrivalTime: string;
+  train: Train;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Admin {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Auth types ─────────────────────────────────────────
 
 export interface LoginInput {
   email: string;
@@ -34,26 +123,12 @@ export interface LoginResult {
   loggedUser: User;
 }
 
-export interface User {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  emailVerified: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface SendOtpInput {
   firstName: string;
   lastName: string;
   email: string;
   password: string;
   confirmPassword: string;
-}
-
-export interface SendOtpResult {
-  message: string;
 }
 
 export interface VerifyOtpInput {
@@ -65,6 +140,8 @@ export interface VerifyOtpResult {
   user: User;
 }
 
+// ── User Auth ──────────────────────────────────────────
+
 export const auth = {
   login: (data: LoginInput) =>
     request<LoginResult>("/users/auth/login", {
@@ -73,7 +150,7 @@ export const auth = {
     }),
 
   sendOtp: (data: SendOtpInput) =>
-    request<SendOtpResult>("/users/auth/send-otp", {
+    request<{ message: string }>("/users/auth/send-otp", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -85,17 +162,114 @@ export const auth = {
     }),
 
   refreshToken: () =>
-    request<{ accessToken: string; refreshToken: string }>("/users/auth/refresh-token", {
-      method: "POST",
-    }),
+    request<{ accessToken: string; refreshToken: string }>(
+      "/users/auth/refresh-token",
+      { method: "POST" }
+    ),
 
   getProfile: () =>
     request<{ success: boolean; user: User }>("/users/user/profile"),
 };
 
+// ── Search ─────────────────────────────────────────────
+
+export const searchApi = {
+  stations: (q: string) =>
+    request<Station[]>(`/search/stations?q=${encodeURIComponent(q)}`),
+
+  trains: (q: string) =>
+    request<Train[]>(`/search/trains?q=${encodeURIComponent(q)}`),
+
+  routes: (q: string) =>
+    request<Route[]>(`/search/routes?q=${encodeURIComponent(q)}`),
+
+  schedules: (q: string) =>
+    request<Schedule[]>(`/search/schedules?q=${encodeURIComponent(q)}`),
+};
+
+// ── Admin Auth ─────────────────────────────────────────
+
+export const adminAuth = {
+  login: (data: LoginInput) =>
+    request<{
+      accessToken: string;
+      refreshToken: string;
+      admin: Admin;
+    }>("/admin/auth/login", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  register: (data: { email: string; password: string; name: string }) =>
+    request<Admin>("/admin/auth/register", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getProfile: () => request<Admin>("/admin/auth/profile"),
+
+  logout: () =>
+    request<{ message: string }>("/admin/auth/logout", { method: "POST" }),
+};
+
+// ── Admin CRUD ─────────────────────────────────────────
+
+export const adminApi = {
+  // Stations
+  getStations: () => request<Station[]>("/admin/stations"),
+  getStation: (id: string) => request<Station>(`/admin/stations/${id}`),
+  createStation: (data: { name: string; code: string; city: string; state: string }) =>
+    request<Station>("/admin/stations", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Trains
+  getTrains: () => request<Train[]>("/admin/trains"),
+  getTrain: (id: string) => request<Train>(`/admin/trains/${id}`),
+  createTrain: (data: { name: string; number: string; coachName?: string; totalSeats: number }) =>
+    request<Train>("/admin/trains", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Routes
+  getRoutes: () => request<Route[]>("/admin/routes"),
+  getRoute: (id: string) => request<Route>(`/admin/routes/${id}`),
+  createRoute: (data: {
+    trainId: string;
+    stations: { stationId: string; stopNumber: number; arrivalTime?: string; departureTime?: string }[];
+  }) =>
+    request<Route>("/admin/routes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Schedules
+  getSchedules: () => request<Schedule[]>("/admin/schedules"),
+  getSchedule: (id: string) => request<Schedule>(`/admin/schedules/${id}`),
+  createSchedule: (data: {
+    trainId: string;
+    journeyDate: string;
+    departureTime: string;
+    arrivalTime: string;
+  }) =>
+    request<Schedule>("/admin/schedules", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
+// ── Token helpers ──────────────────────────────────────
+
 export function getAccessToken() {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("accessToken");
+}
+
+export function getAdminAccessToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("adminAccessToken");
 }
 
 export function setTokens(accessToken: string, refreshToken: string) {
@@ -103,7 +277,17 @@ export function setTokens(accessToken: string, refreshToken: string) {
   localStorage.setItem("refreshToken", refreshToken);
 }
 
+export function setAdminTokens(accessToken: string, refreshToken: string) {
+  localStorage.setItem("adminAccessToken", accessToken);
+  localStorage.setItem("adminRefreshToken", refreshToken);
+}
+
 export function clearTokens() {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
+}
+
+export function clearAdminTokens() {
+  localStorage.removeItem("adminAccessToken");
+  localStorage.removeItem("adminRefreshToken");
 }

@@ -12,7 +12,7 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@elastic/elasticsearch": "^9.4.2",
+    "@elastic/elasticsearch": "8",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "kafkajs": "^2.2.4"
