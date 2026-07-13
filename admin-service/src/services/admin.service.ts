@@ -3,9 +3,9 @@ import { Prisma } from "@prisma/client";
 import { NotFoundError, BadRequestError } from "../utils/error";
 
 const SEAT_TYPE_PRICES = {
-  AC: 1500,
-  Sleeper: 800,
-  Seater: 500,
+  AC: 150000,
+  Sleeper: 80000,
+  Seater: 50000,
 } as const;
 
 const SEAT_TYPES: ("AC" | "Sleeper" | "Seater")[] = ["AC", "Sleeper", "Seater"];
@@ -72,7 +72,7 @@ function generateSeats(totalSeats: number, trainId: string) {
     trainId: string;
     seatNumber: string;
     seatType: "AC" | "Sleeper" | "Seater";
-    price: number;
+    pricePaise: number;
   }[] = [];
 
   let counter = 1;
@@ -86,7 +86,7 @@ function generateSeats(totalSeats: number, trainId: string) {
         trainId,
         seatNumber: `${seatType === "AC" ? "A" : seatType === "Sleeper" ? "S" : "E"}${String(counter).padStart(2, "0")}`,
         seatType,
-        price: SEAT_TYPE_PRICES[seatType],
+        pricePaise: SEAT_TYPE_PRICES[seatType],
       });
       counter++;
     }
@@ -200,17 +200,30 @@ export async function createSchedule(data: {
   const train = await prisma.train.findUnique({ where: { id: data.trainId } });
   if (!train) throw new NotFoundError("Train not found");
 
+  const journeyDate = new Date(`${data.journeyDate}T00:00:00.000Z`);
+  const departureTime = scheduleDateTime(data.journeyDate, data.departureTime);
+  const arrivalTime = scheduleDateTime(data.journeyDate, data.arrivalTime);
+  if (Number.isNaN(journeyDate.valueOf()) || Number.isNaN(departureTime.valueOf()) || Number.isNaN(arrivalTime.valueOf())) {
+    throw new BadRequestError("Schedule date and times are invalid");
+  }
+  if (arrivalTime <= departureTime) throw new BadRequestError("Arrival must be after departure");
+
   const schedule = await prisma.schedule.create({
     data: {
       trainId: data.trainId,
-      journeyDate: new Date(data.journeyDate),
-      departureTime: new Date(data.departureTime),
-      arrivalTime: new Date(data.arrivalTime),
+      journeyDate,
+      departureTime,
+      arrivalTime,
     },
     include: { train: true },
   });
 
   return schedule;
+}
+
+function scheduleDateTime(journeyDate: string, value: string) {
+  if (/^\d{2}:\d{2}$/.test(value)) return new Date(`${journeyDate}T${value}:00+05:30`);
+  return new Date(value);
 }
 
 export async function findAllSchedules() {

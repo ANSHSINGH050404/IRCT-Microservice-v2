@@ -98,4 +98,36 @@ export class AdminProducer {
       timestamp: new Date().toISOString(),
     });
   }
+
+  async bookingConfirmed(booking: {
+    pnr: string;
+    email: string;
+    trainName: string;
+    trainNumber: string;
+    journeyDate: string;
+    fromStation: string;
+    toStation: string;
+    passengerCount: number;
+    totalAmountPaise: number;
+  }) {
+    return this.sendMessage(TOPICS.BOOKING_CONFIRMED, `booking:${booking.pnr}`, {
+      event: TOPICS.BOOKING_CONFIRMED,
+      data: booking,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  async bookingCancelled(booking: {
+    pnr: string;
+    email: string;
+    trainName: string;
+    trainNumber: string;
+    totalAmountPaise: number;
+  }) {
+    return this.sendMessage(TOPICS.BOOKING_CANCELLED, `booking:${booking.pnr}`, {
+      event: TOPICS.BOOKING_CANCELLED,
+      data: booking,
+      timestamp: new Date().toISOString(),
+    });
+  }
 }

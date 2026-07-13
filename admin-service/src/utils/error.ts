@@ -25,5 +25,11 @@ class NotFoundError extends AppError {
   }
 }
 
+class ConflictError extends AppError {
+  constructor(message: string) {
+    super(message, 409, "CONFLICT");
+  }
+}
+
 export default AppError;
-export { BadRequestError, UnauthorizedError, NotFoundError };
+export { BadRequestError, UnauthorizedError, NotFoundError, ConflictError };

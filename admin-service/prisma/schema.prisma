@@ -14,24 +14,38 @@ enum SeatType {
 }
 
 enum BookingStatus {
-  Pending
-  Confirmed
-  Cancelled
+  PENDING
+  CONFIRMED
+  CANCELLED
+  PAYMENT_FAILED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUND_PENDING
+  REFUNDED
+  FAILED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
 }
 
 model Station {
-  id        String   @id @default(cuid())
-  name      String
-  code      String   @unique
-  city      String
-  state     String
-
+  id            String         @id @default(cuid())
+  name          String
+  code          String         @unique
+  city          String
+  state         String
   routeStations RouteStation[]
-  fromBookings  Booking[]    @relation("FromStation")
-  toBookings    Booking[]    @relation("ToStation")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  fromBookings  Booking[]      @relation("FromStation")
+  toBookings    Booking[]      @relation("ToStation")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
   @@index([code])
   @@index([name])
@@ -39,53 +53,43 @@ model Station {
 }
 
 model Train {
-  id         String   @id @default(cuid())
+  id         String     @id @default(cuid())
   name       String
-  number     String   @unique
-  coachName  String   @default("AC")
+  number     String     @unique
+  coachName  String     @default("AC")
   totalSeats Int
-
   seats      Seat[]
   route      Route?
   schedules  Schedule[]
-
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
 
   @@index([number])
   @@map("trains")
 }
 
 model Route {
-  id        String @id @default(cuid())
-
-  trainId   String @unique
-  train     Train  @relation(fields: [trainId], references: [id], onDelete: Cascade)
-
+  id            String         @id @default(cuid())
+  trainId       String         @unique
+  train         Train          @relation(fields: [trainId], references: [id], onDelete: Cascade)
   routeStations RouteStation[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
   @@map("routes")
 }
 
 model RouteStation {
-  id String @id @default(cuid())
-
-  routeId String
-  route Route @relation(fields: [routeId], references: [id], onDelete: Cascade)
-
-  stationId String
-  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
-
-  stopNumber Int
-
-  arrivalTime String?
+  id            String   @id @default(cuid())
+  routeId       String
+  route         Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  stationId     String
+  station       Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  stopNumber    Int
+  arrivalTime   String?
   departureTime String?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@unique([routeId, stationId])
   @@unique([routeId, stopNumber])
@@ -93,100 +97,90 @@ model RouteStation {
 }
 
 model Schedule {
-  id String @id @default(cuid())
-
-  trainId String
-  train Train @relation(fields: [trainId], references: [id], onDelete: Cascade)
-
-  journeyDate DateTime
-
+  id            String    @id @default(cuid())
+  trainId       String
+  train         Train     @relation(fields: [trainId], references: [id], onDelete: Cascade)
+  journeyDate   DateTime  @db.Date
   departureTime DateTime
-  arrivalTime DateTime
+  arrivalTime   DateTime
+  bookings      Booking[]
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  bookings Booking[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
+  @@unique([trainId, journeyDate])
   @@index([journeyDate])
   @@map("schedules")
 }
 
 model Seat {
-  id String @id @default(cuid())
-
-  trainId String
-  train Train @relation(fields: [trainId], references: [id], onDelete: Cascade)
-
+  id         String             @id @default(cuid())
+  trainId    String
+  train      Train              @relation(fields: [trainId], references: [id], onDelete: Cascade)
   seatNumber String
-  seatType SeatType
-
-  price Float
-
-  bookings Booking[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  seatType   SeatType
+  pricePaise Int                @map("price_paise")
+  passengers BookingPassenger[]
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
 
   @@unique([trainId, seatNumber])
   @@map("seats")
 }
 
-model Passenger {
-  id String @id @default(cuid())
-
-  name String
-  email String @unique
-  phone String @unique
-
-  bookings Booking[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@map("passengers")
-}
-
 model Booking {
-  id String @id @default(cuid())
+  id                String          @id @default(cuid())
+  pnr               String?         @unique
+  userId            String          @map("user_id")
+  userEmail         String          @map("user_email")
+  scheduleId        String
+  schedule          Schedule        @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  fromStationId     String
+  fromStation       Station         @relation("FromStation", fields: [fromStationId], references: [id], onDelete: Restrict)
+  toStationId       String
+  toStation         Station         @relation("ToStation", fields: [toStationId], references: [id], onDelete: Restrict)
+  totalAmountPaise  Int             @map("total_amount_paise")
+  status            BookingStatus   @default(PENDING)
+  paymentStatus     PaymentStatus   @default(PENDING) @map("payment_status")
+  razorpayOrderId   String?         @unique @map("razorpay_order_id")
+  razorpayPaymentId String?         @unique @map("razorpay_payment_id")
+  razorpayRefundId  String?         @unique @map("razorpay_refund_id")
+  expiresAt         DateTime?       @map("expires_at")
+  cancelledAt       DateTime?       @map("cancelled_at")
+  passengers        BookingPassenger[]
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
 
-  passengerId String
-  passenger Passenger @relation(fields: [passengerId], references: [id], onDelete: Cascade)
-
-  scheduleId String
-  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-
-  seatId String
-  seat Seat @relation(fields: [seatId], references: [id], onDelete: Cascade)
-
-  fromStationId String
-  fromStation Station @relation("FromStation", fields: [fromStationId], references: [id])
-
-  toStationId String
-  toStation Station @relation("ToStation", fields: [toStationId], references: [id])
-
-  status BookingStatus @default(Pending)
-
-  bookedAt DateTime @default(now())
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([scheduleId])
-  @@index([passengerId])
-  @@index([seatId])
-
+  @@index([userId, createdAt])
+  @@index([scheduleId, status])
+  @@index([expiresAt])
   @@map("bookings")
 }
 
+model BookingPassenger {
+  id          String   @id @default(cuid())
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  name        String
+  age         Int
+  gender      Gender
+  phone       String
+  seatId      String
+  seat        Seat     @relation(fields: [seatId], references: [id], onDelete: Restrict)
+  farePaise   Int      @map("fare_paise")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([bookingId, seatId])
+  @@index([seatId])
+  @@map("booking_passengers")
+}
+
 model Admin {
-  id String @id @default(cuid())
-
-  email String @unique
-  password String
-  name String
-  role String @default("admin")
-
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("admin")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

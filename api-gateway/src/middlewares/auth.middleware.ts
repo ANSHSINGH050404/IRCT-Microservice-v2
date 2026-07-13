@@ -35,6 +35,9 @@ export function authenticate(req: AuthenticatedRequest, res: Response, next: Nex
 export function setUserHeaders(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
   if (req.user) {
     req.headers['x-user-id'] = req.user.id;
+    if (typeof req.user.email === 'string') {
+      req.headers['x-user-email'] = req.user.email;
+    }
     if (req.user.role) {
       req.headers['x-user-role'] = req.user.role;
     }

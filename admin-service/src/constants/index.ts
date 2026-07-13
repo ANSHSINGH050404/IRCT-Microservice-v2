@@ -3,4 +3,6 @@ export const TOPICS = {
   TRAIN_CREATED: "train.created",
   ROUTE_CREATED: "route.created",
   SCHEDULE_CREATED: "schedule.created",
+  BOOKING_CONFIRMED: "booking.confirmed",
+  BOOKING_CANCELLED: "booking.cancelled",
 } as const;

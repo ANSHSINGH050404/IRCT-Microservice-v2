@@ -5,10 +5,14 @@ import { globalRateLimiter } from "./middlewares/rateLimiter.js";
 import { requestLogger } from "./middlewares/req.middleware.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 import routes from "./routes/index.js";
+import { config } from "./config/index.js";
 
 const app = express();
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({
+  origin: config.corsOrigins.includes('*') ? true : config.corsOrigins,
+  credentials: true,
+}));
 app.use(cookieParser());
 app.use(globalRateLimiter);
 app.use(requestLogger);

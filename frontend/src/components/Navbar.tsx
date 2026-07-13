@@ -40,6 +40,12 @@ export default function Navbar() {
             >
               Profile
             </Link>
+            <Link
+              href="/bookings"
+              className="text-sm text-zinc-600 hover:text-zinc-900"
+            >
+              My trips
+            </Link>
             <button
               onClick={handleLogout}
               className="text-sm text-zinc-600 hover:text-zinc-900"

@@ -58,7 +58,7 @@ const circuitBreakers: Record<string, CircuitBreaker> = {
   searchService: new CircuitBreaker("searchService"),
 };
 
-export function createProxy(serviceName: string, target: string): RequestHandler {
+export function createProxy(serviceName: string, target: string, pathRewrite?: Record<string, string>): RequestHandler {
   const cb = circuitBreakers[serviceName];
   if (!cb) {
     throw new Error(`Unknown service: ${serviceName}`);
@@ -67,13 +67,16 @@ export function createProxy(serviceName: string, target: string): RequestHandler
   const proxy = createProxyMiddleware({
     target,
     changeOrigin: true,
-    pathRewrite: {
+    pathRewrite: pathRewrite ?? {
       '^/users': '/api/v1/users',
       '^/admin': '/api',
       '^/search': '/api/search',
     },
     on: {
       proxyReq: (proxyReq, req: Request) => {
+        if (config.internalGatewaySecret) {
+          proxyReq.setHeader('x-gateway-secret', config.internalGatewaySecret);
+        }
         const rewrittenPath = proxyReq.path;
         logger.info(`Proxying ${req.method} ${req.originalUrl} -> ${serviceName} -> ${rewrittenPath}`);
       },
